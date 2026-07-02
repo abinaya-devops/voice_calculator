@@ -115,9 +115,22 @@ stt.SpeechToText();
     }
   }
 
+  List<String> tokenize(String expression) {
+    RegExp exp = RegExp(r'(\d+\.?\d*|[+\-*/])');
+
+    return exp
+        .allMatches(expression)
+        .map((e) => e.group(0)!)
+        .toList();
+  }
+
   void calculate() {
     try {
-      String expression = inputController.text.replaceAll(" ", "");
+      String expression = inputController.text.replaceAll(" ", "").replaceAll("x", "*").replaceAll("X", "*");
+
+      List<String> tokens = tokenize(expression);
+
+      print(tokens);
 
       double answer = 0;
 
@@ -172,8 +185,16 @@ stt.SpeechToText();
         }
 
       } else {
-        result = "Mixed operations coming soon!";
-        return;
+        List<String> tokens = tokenize(expression);
+
+        answer = double.parse(tokens[0]);
+
+        for (int i = 1; i < tokens.length; i += 2) {
+          String op = tokens[i];
+          double number = double.parse(tokens[i + 1]);
+
+          answer = performOperation(answer, number, op);
+        }
       }
 
       setState(() {
