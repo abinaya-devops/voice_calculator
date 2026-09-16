@@ -1,5 +1,5 @@
 name: voice_calculator
-description: "A new Flutter project."
+description: "A professional voice-enabled calculator with a full scientific engine, clear speech recognition, and history."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -36,6 +36,9 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  shared_preferences: ^2.5.5
+  share_plus: ^10.0.2
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +50,21 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# App icon generation: run `dart run flutter_launcher_icons`
+flutter_launcher_icons:
+  image_path: "assets/logo/app_logo.png"
+  android: true
+  min_sdk_android: 21
+  adaptive_icon_background: "#0C1524"
+  adaptive_icon_foreground: "assets/logo/app_logo_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  windows:
+    generate: true
+    image_path: "assets/logo/app_logo.png"
+    icon_size: 256
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -58,6 +76,21 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/sounds/
+    - assets/logo/
+
+  fonts:
+    - family: Saira
+      fonts:
+        - asset: assets/fonts/saira-v23-latin-regular.ttf
+        - asset: assets/fonts/saira-v23-latin-500.ttf
+          weight: 500
+        - asset: assets/fonts/saira-v23-latin-600.ttf
+          weight: 600
+        - asset: assets/fonts/saira-v23-latin-700.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

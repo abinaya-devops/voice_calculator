@@ -1,11 +1,11 @@
 {
-    "name": "voice_calculator",
-    "short_name": "voice_calculator",
+    "name": "Voice Calculator",
+    "short_name": "Calculator",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0C1524",
+    "theme_color": "#5B8DEF",
+    "description": "A professional voice-enabled calculator with a full scientific engine, clear speech recognition, and history.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Voice Calculator needs microphone access to hear the calculations you speak.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Voice Calculator uses speech recognition to convert your spoken math into calculations.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
