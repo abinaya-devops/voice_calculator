@@ -2,6 +2,21 @@
 
 A professional voice-enabled calculator built with **Flutter**. Speak a calculation naturally — *"twenty five point five times four"*, *"square root of eighty one"*, *"20 percent of 150"* — and get the result instantly. Includes a full scientific engine, calculator key sounds, history, and a responsive Material 3 UI in cornflower & ice blue.
 
+## 📲 Try it
+
+| | |
+|---|---|
+| **🌐 Web demo** (open on any PC/Chrome): | <https://abinaya-devops.github.io/voice_calculator/> |
+| **📱 Android app** (install the APK): | <https://github.com/abinaya-devops/voice_calculator/releases/tag/latest> |
+
+**Scan with a phone camera** — left: open the web demo · right: download the Android APK
+
+| Web demo | Android APK |
+|---|---|
+| ![](docs/qr-web.png) | ![](docs/qr-apk.png) |
+
+> **Installing the APK:** after downloading, Android may ask to "allow installs from this source" and Play Protect may offer a security scan — both are normal one-time steps for apps shared outside the Play Store.
+
 ## ✨ Features
 
 **Voice recognition**
