@@ -95,7 +95,31 @@ class VoiceParser {
     final fin = finalWords.trim();
     final partial = lastPartial.trim();
     if (partial.isEmpty || fin == partial) return fin;
-    if (fin.endsWith(partial) && fin.length > partial.length) return partial;
+
+    // Space-insensitive comparison: concatenation glues words together
+    // ("8" + "8/2" -> "88/2"), so whitespace must not hide the signature.
+    final finFlat = fin.replaceAll(' ', '');
+    final partialFlat = partial.replaceAll(' ', '');
+
+    // Concatenated-partials pollution: the final chains every partial
+    // together, so it always ends with the last clean partial.
+    if (finFlat == partialFlat) return partial;
+    if (finFlat.length > partialFlat.length && finFlat.endsWith(partialFlat)) {
+      return partial;
+    }
+
+    // Dropped-operator recapture: a final that lost ALL the operators the
+    // partial clearly heard ("5+11-3" -> "55") is a failed re-capture, not
+    // a correction. Prefer the operator-bearing partial, minus any trailing
+    // half-captured operator.
+    final hasOps = RegExp(
+        r'[+*/^%!]|\b(plus|minus|times|into|multiplied|multiply|divided|divide|upon|over|slash|x)\b');
+    if (finFlat.length < partialFlat.length &&
+        hasOps.hasMatch(partial) &&
+        !hasOps.hasMatch(fin)) {
+      return partial.replaceAll(RegExp(r'[+\-*/^%!.,\s]+$'), '');
+    }
+
     return fin;
   }
 

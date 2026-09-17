@@ -230,6 +230,15 @@ void main() {
       );
     });
 
+    test('dropped-operator recapture falls back to the partial', () {
+      // Device re-captured and lost the operators entirely: the complete
+      // partial utterance is the truth, so it must be preserved intact.
+      expect(VoiceParser.resolveFinalTranscript('55', '5+11-3'), '5+11-3');
+      expect(VoiceParser.resolveFinalTranscript('88', '8/2'), '8/2');
+      // A partial that ends mid-operation keeps everything but the dangler.
+      expect(VoiceParser.resolveFinalTranscript('55', '5+11-'), '5+11');
+    });
+
     test('genuine longer final is kept', () {
       // Partial caught only part of the sentence; the final extends it.
       expect(

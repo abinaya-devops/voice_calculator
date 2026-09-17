@@ -212,6 +212,9 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
   // deliver a FINAL result that concatenates all partials ("88/8/28/2"), so
   // we keep the last clean partial and prefer it when that happens.
   String _lastCleanPartial = '';
+  // Some devices emit a SECOND, stale "final" result after the good one
+  // (leftover buffer replay). Only the first final per session is trusted.
+  bool _finalHandledThisSession = false;
   String _voiceMessage = '';
 
   List<String> _history = [];
@@ -435,6 +438,7 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
       _liveTranscript = '';
     });
     _lastCleanPartial = '';
+    _finalHandledThisSession = false;
 
     try {
       final available = await _speech.initialize(
@@ -489,6 +493,11 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
           // and prefer it whenever the final result looks polluted.
           final words = result.recognizedWords;
           if (result.finalResult) {
+            if (_finalHandledThisSession) {
+              // Stale duplicate final from a previous session — ignore it.
+              return;
+            }
+            _finalHandledThisSession = true;
             _handleFinalTranscript(words, lastCleanPartial: _lastCleanPartial);
             _lastCleanPartial = '';
           } else if (words.trim().isNotEmpty) {
@@ -548,8 +557,10 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
     if (parsed.trim().isEmpty || !hasMath) {
       setState(() {
         _liveTranscript = words;
+        // Show exactly what was heard so recognition problems (dropped
+        // operators, noise, wrong words) are visible, not mysterious.
         _voiceMessage =
-            'Didn\'t catch a calculation. Try "twelve times eight".';
+            'Heard "$spoken" — no calculation. Say the operators out loud: "five plus eleven minus three".';
       });
       return;
     }
