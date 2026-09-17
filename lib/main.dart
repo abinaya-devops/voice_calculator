@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -215,6 +217,12 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
   // Some devices emit a SECOND, stale "final" result after the good one
   // (leftover buffer replay). Only the first final per session is trusted.
   bool _finalHandledThisSession = false;
+  // Fast mode: evaluate from the live partial transcript shortly after the
+  // user pauses, instead of waiting for the recognizer's slower final
+  // result. The final still arrives afterwards and corrects if needed.
+  bool _fastMode = false;
+  Timer? _fastModeTimer;
+  String _fastModeApplied = '';
   String _voiceMessage = '';
 
   List<String> _history = [];
@@ -223,7 +231,14 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
   void initState() {
     super.initState();
     _loadHistory();
+    _loadFastMode();
     _initSounds();
+  }
+
+  Future<void> _loadFastMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _fastMode = prefs.getBool('fastMode') ?? true);
   }
 
   Future<void> _initSounds() async {
@@ -234,6 +249,7 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
 
   @override
   void dispose() {
+    _fastModeTimer?.cancel();
     _inputController.dispose();
     _soundLevel.dispose();
     _speech.stop();
@@ -439,6 +455,8 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
     });
     _lastCleanPartial = '';
     _finalHandledThisSession = false;
+    _fastModeApplied = '';
+    _fastModeTimer?.cancel();
 
     try {
       final available = await _speech.initialize(
@@ -503,6 +521,7 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
           } else if (words.trim().isNotEmpty) {
             _lastCleanPartial = words;
             setState(() => _liveTranscript = words);
+            _scheduleFastMode(words);
           }
         },
       );
@@ -521,10 +540,50 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
     setState(() {
       _isListening = listening;
     });
-    if (!listening) _soundLevel.value = 0;
+    if (!listening) {
+      _soundLevel.value = 0;
+      _fastModeTimer?.cancel();
+    }
+  }
+
+  // Fast mode: when the live transcript is a calculable expression and the
+  // user pauses briefly, evaluate it without waiting for the recognizer's
+  // slower final result (which can trail by 1-3 seconds on Android).
+  void _scheduleFastMode(String words) {
+    if (!_fastMode || !_isListening) return;
+    final parsed = VoiceParser.parse(words);
+    final hasMath = RegExp(r'[0-9π!]').hasMatch(parsed) ||
+        RegExp(r'\b(sin|cos|tan|log|ln|sqrt|cbrt|exp|abs)\b').hasMatch(parsed);
+    if (parsed.trim().isEmpty || !hasMath) return;
+
+    _fastModeTimer?.cancel();
+    _fastModeTimer = Timer(const Duration(milliseconds: 650), () {
+      if (!mounted || !_isListening) return;
+      // Only apply if the transcript hasn't changed since the pause began.
+      if (VoiceParser.parse(_liveTranscript) != parsed) return;
+      setState(() {
+        _voiceMessage = 'Heard "$words"';
+        _liveTranscript = '';
+        _inputController.text = parsed;
+        _moveCursorToEnd();
+      });
+      _evaluate();
+      _fastModeApplied = words;
+    });
   }
 
   void _handleFinalTranscript(String words, {String lastCleanPartial = ''}) {
+    _fastModeTimer?.cancel();
+    // Fast mode already evaluated this exact utterance — the recognizer's
+    // final result only matters if it corrected or extended what we heard.
+    if (_fastModeApplied.isNotEmpty) {
+      final applied = _fastModeApplied.trim();
+      final incoming = VoiceParser.resolveFinalTranscript(words, lastCleanPartial)
+          .trim();
+      _fastModeApplied = '';
+      if (incoming == applied) return;
+    }
+
     // Prefer the clean last partial when the final result looks like the
     // recognizer's concatenated partials (a common Android quirk).
     words = VoiceParser.resolveFinalTranscript(words, lastCleanPartial);
@@ -726,6 +785,21 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
           tooltip: 'History',
           icon: const Icon(Icons.history_rounded),
           onPressed: _openHistory,
+        ),
+        IconButton(
+          tooltip: _fastMode
+              ? 'Fast results on (⚡ pause to calculate)'
+              : 'Fast results off',
+          icon: Icon(
+            Icons.bolt_rounded,
+            color: _fastMode ? const Color(0xFFF59E0B) : null,
+          ),
+          onPressed: () async {
+            final next = !_fastMode;
+            setState(() => _fastMode = next);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('fastMode', next);
+          },
         ),
         IconButton(
           tooltip: _soundsMuted ? 'Key sounds off' : 'Key sounds on',
