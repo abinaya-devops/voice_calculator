@@ -208,6 +208,10 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
   // never rebuilding (or shaking) the rest of the screen.
   final ValueNotifier<double> _soundLevel = ValueNotifier(0);
   String _liveTranscript = '';
+  // Last clean partial transcript from the recognizer. Some Android engines
+  // deliver a FINAL result that concatenates all partials ("88/8/28/2"), so
+  // we keep the last clean partial and prefer it when that happens.
+  String _lastCleanPartial = '';
   String _voiceMessage = '';
 
   List<String> _history = [];
@@ -430,6 +434,7 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
       _voiceMessage = '';
       _liveTranscript = '';
     });
+    _lastCleanPartial = '';
 
     try {
       final available = await _speech.initialize(
@@ -478,9 +483,17 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
         ),
         onResult: (result) {
           if (!mounted) return;
-          setState(() => _liveTranscript = result.recognizedWords);
+          // On many Android recognizers, the FINAL result is a concatenation
+          // of every partial heard so far ("8" + "8/2" + ... -> "88/8/28/2").
+          // The last clean partial is the accurate transcript, so remember it
+          // and prefer it whenever the final result looks polluted.
+          final words = result.recognizedWords;
           if (result.finalResult) {
-            _handleFinalTranscript(result.recognizedWords);
+            _handleFinalTranscript(words, lastCleanPartial: _lastCleanPartial);
+            _lastCleanPartial = '';
+          } else if (words.trim().isNotEmpty) {
+            _lastCleanPartial = words;
+            setState(() => _liveTranscript = words);
           }
         },
       );
@@ -502,7 +515,11 @@ class _VoiceCalculatorHomeState extends State<VoiceCalculatorHome> {
     if (!listening) _soundLevel.value = 0;
   }
 
-  void _handleFinalTranscript(String words) {
+  void _handleFinalTranscript(String words, {String lastCleanPartial = ''}) {
+    // Prefer the clean last partial when the final result looks like the
+    // recognizer's concatenated partials (a common Android quirk).
+    words = VoiceParser.resolveFinalTranscript(words, lastCleanPartial);
+
     final spoken = words.toLowerCase().trim();
 
     // Voice commands (whole utterance only).

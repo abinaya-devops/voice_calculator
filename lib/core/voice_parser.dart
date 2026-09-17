@@ -83,6 +83,22 @@ class VoiceParser {
   // Main entry point
   // ------------------------------------------------------------------
 
+  /// Picks the trustworthy transcript from a speech-recognition session.
+  ///
+  /// Many Android recognizers deliver a FINAL result that is a concatenation
+  /// of every partial heard ("8" + "8/2" -> "88/8/28/2"), instead of the
+  /// clean utterance. The signature: the polluted final always ENDS with the
+  /// last clean partial, because it is the partials chained together. A
+  /// genuine final that merely extends the partial ("5+11-" -> "5+11-3")
+  /// does not end with it, so it is kept.
+  static String resolveFinalTranscript(String finalWords, String lastPartial) {
+    final fin = finalWords.trim();
+    final partial = lastPartial.trim();
+    if (partial.isEmpty || fin == partial) return fin;
+    if (fin.endsWith(partial) && fin.length > partial.length) return partial;
+    return fin;
+  }
+
   static String parse(String rawSpeech) {
     var s = rawSpeech.toLowerCase().trim();
     if (s.isEmpty) return '';

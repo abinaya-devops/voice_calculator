@@ -214,4 +214,37 @@ void main() {
       );
     });
   });
+
+  group('resolveFinalTranscript — Android concatenated-partials bug', () {
+    // Android recognizers sometimes deliver a final result that is every
+    // partial chained together: "8" + "8/2" -> "88/8/28/2".
+    test('polluted final falls back to the clean last partial', () {
+      expect(
+        VoiceParser.resolveFinalTranscript('88/8/28/2', '8/2'),
+        '8/2',
+      );
+      expect(
+        VoiceParser.resolveFinalTranscript('55+5+5+115+11-5+11-35+11-3',
+            '5+11-3'),
+        '5+11-3',
+      );
+    });
+
+    test('genuine longer final is kept', () {
+      // Partial caught only part of the sentence; the final extends it.
+      expect(
+        VoiceParser.resolveFinalTranscript('5+11-3', '5+11-'),
+        '5+11-3',
+      );
+      expect(
+        VoiceParser.resolveFinalTranscript('twenty five plus two', 'twenty five'),
+        'twenty five plus two',
+      );
+    });
+
+    test('equal or clean finals pass through', () {
+      expect(VoiceParser.resolveFinalTranscript('8/2', '8/2'), '8/2');
+      expect(VoiceParser.resolveFinalTranscript('8/2', ''), '8/2');
+    });
+  });
 }
