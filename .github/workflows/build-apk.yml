@@ -1,0 +1,66 @@
+name: Build Android APK
+
+# Builds a signed-with-debug-key release APK on every push to master and
+# uploads it for download from the Actions run and from a rolling "latest"
+# release. (Debug-key signing is fine for personal/testing installs; for
+# Play Store you would create a real keystore.)
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Download packages
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk voice-calculator.apk
+
+      - name: Attach APK to this workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-calculator-apk
+          path: voice-calculator.apk
+
+      - name: Update rolling "latest" release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest APK
+          prerelease: true
+          files: voice-calculator.apk
+          allow_updates: true
