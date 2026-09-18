@@ -1,9 +1,9 @@
 name: Build Android APK
 
-# Builds a signed-with-debug-key release APK on every push to master and
-# uploads it for download from the Actions run and from a rolling "latest"
-# release. (Debug-key signing is fine for personal/testing installs; for
-# Play Store you would create a real keystore.)
+# Builds the release APK on every push to master, signs it with the stable
+# keystore (restored from the KEY_JKS_BASE64 secret) and uploads it to the
+# rolling "latest" release. Debug-signs only when the secret is absent, and
+# never publishes a debug-signed APK to the release.
 
 on:
   push:
@@ -46,17 +46,29 @@ jobs:
             echo "KEY_JKS_BASE64 not set - building with debug signing."
             exit 0
           fi
-          printf '%s' "$KEY_JKS_BASE64" | tr -d '\r\n ' | base64 -d > android/key.jks
-          if [ ! -s android/key.jks ]; then
-            echo "::error::KEY_JKS_BASE64 decoded to an empty file - check the secret was copied in full."
+          CLEAN=$(printf '%s' "$KEY_JKS_BASE64" | tr -cd 'A-Za-z0-9+/=')
+          echo "Secret received: ${#CLEAN} base64 characters (expected ~3712)."
+          printf '%s' "$CLEAN" | base64 -d > android/key.jks
+          SIZE=$(wc -c < android/key.jks)
+          echo "Decoded keystore: $SIZE bytes (expected ~2782)."
+          if [ "$SIZE" -lt 100 ]; then
+            echo "::error::KEY_JKS_BASE64 did not decode to a keystore (got $SIZE bytes). Re-copy the FULL contents of keystore.base64.txt into the secret."
             exit 1
+          fi
+          if command -v keytool >/dev/null 2>&1; then
+            if ! keytool -list -keystore android/key.jks -storepass voicecalc2026 >/dev/null 2>&1; then
+              echo "::error::Secret decodes but is not a valid keystore (or password mismatch). Re-create the secret from keystore.base64.txt."
+              exit 1
+            fi
+          else
+            echo "keytool not on PATH - skipping keystore validation."
           fi
           printf '%s\n' \
             'storePassword=voicecalc2026' \
             'keyPassword=voicecalc2026' \
             'keyAlias=voicecalc' \
             'storeFile=key.jks' > android/key.properties
-          echo "Release keystore restored."
+          echo "Release keystore restored and verified."
           echo "SIGNED=true" >> "$GITHUB_ENV"
 
       - name: Download packages
