@@ -1,9 +1,12 @@
 name: Build Android APK
 
 # Builds the release APK on every push to master, signs it with the stable
-# keystore (restored from the KEY_JKS_BASE64 secret) and uploads it to the
-# rolling "latest" release. Debug-signs only when the secret is absent, and
-# never publishes a debug-signed APK to the release.
+# keystore, and uploads it to the rolling "latest" release.
+#
+# Signing setup: the keystore is AES-256 encrypted into android/key.jks.enc
+# (committed to the repo - useless without the password). The decryption
+# password lives in the KEY_PASSWORD GitHub secret. If the secret is absent
+# the build falls back to debug signing and never touches the release.
 
 on:
   push:
@@ -40,24 +43,27 @@ jobs:
 
       - name: Restore release signing key
         env:
-          KEY_JKS_BASE64: ${{ secrets.KEY_JKS_BASE64 }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -z "$KEY_JKS_BASE64" ]; then
-            echo "KEY_JKS_BASE64 not set - building with debug signing."
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "KEY_PASSWORD not set - building with debug signing."
             exit 0
           fi
-          CLEAN=$(printf '%s' "$KEY_JKS_BASE64" | tr -cd 'A-Za-z0-9+/=')
-          echo "Secret received: ${#CLEAN} base64 characters (expected ~3712)."
-          printf '%s' "$CLEAN" | base64 -d > android/key.jks
-          SIZE=$(wc -c < android/key.jks)
-          echo "Decoded keystore: $SIZE bytes (expected ~2782)."
-          if [ "$SIZE" -lt 100 ]; then
-            echo "::error::KEY_JKS_BASE64 did not decode to a keystore (got $SIZE bytes). Re-copy the FULL contents of keystore.base64.txt into the secret."
+          if [ ! -f android/key.jks.enc ]; then
+            echo "::error::KEY_PASSWORD is set but android/key.jks.enc is missing from the repo."
+            exit 1
+          fi
+          # Trim any whitespace the paste may have picked up.
+          KEY_PASSWORD=$(printf '%s' "$KEY_PASSWORD" | tr -d ' \r\n\t')
+          KP="$KEY_PASSWORD" openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in android/key.jks.enc -out android/key.jks -pass env:KP
+          if [ ! -s android/key.jks ]; then
+            echo "::error::Decryption produced an empty keystore - the KEY_PASSWORD secret does not match. Re-check the secret value."
             exit 1
           fi
           if command -v keytool >/dev/null 2>&1; then
             if ! keytool -list -keystore android/key.jks -storepass voicecalc2026 >/dev/null 2>&1; then
-              echo "::error::Secret decodes but is not a valid keystore (or password mismatch). Re-create the secret from keystore.base64.txt."
+              echo "::error::Keystore decrypted but is invalid (or store password mismatch)."
               exit 1
             fi
           else

@@ -46,3 +46,4 @@ app.*.map.json
 
 # Local signing key material (never commit)
 keystore.base64.txt
+android/key.password.txt
